@@ -1,0 +1,3 @@
+../Core/Src/lps22hh.c:20:25:LPS22HH_CheckID	40	static
+../Core/Src/lps22hh.c:32:18:LPS22HH_Init	40	static
+../Core/Src/lps22hh.c:50:18:LPS22HH_ReadPressure	40	static
