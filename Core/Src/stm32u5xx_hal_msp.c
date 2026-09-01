@@ -78,6 +78,51 @@ void HAL_MspInit(void)
 }
 
 /**
+  * @brief CRYP MSP Initialization
+  * This function configures the hardware resources used in this example
+  * @param hcryp: CRYP handle pointer
+  * @retval None
+  */
+void HAL_CRYP_MspInit(CRYP_HandleTypeDef* hcryp)
+{
+  if(hcryp->Instance==AES)
+  {
+    /* USER CODE BEGIN AES_MspInit 0 */
+
+    /* USER CODE END AES_MspInit 0 */
+    /* Peripheral clock enable */
+    __HAL_RCC_AES_CLK_ENABLE();
+    /* USER CODE BEGIN AES_MspInit 1 */
+
+    /* USER CODE END AES_MspInit 1 */
+
+  }
+
+}
+
+/**
+  * @brief CRYP MSP De-Initialization
+  * This function freeze the hardware resources used in this example
+  * @param hcryp: CRYP handle pointer
+  * @retval None
+  */
+void HAL_CRYP_MspDeInit(CRYP_HandleTypeDef* hcryp)
+{
+  if(hcryp->Instance==AES)
+  {
+    /* USER CODE BEGIN AES_MspDeInit 0 */
+
+    /* USER CODE END AES_MspDeInit 0 */
+    /* Peripheral clock disable */
+    __HAL_RCC_AES_CLK_DISABLE();
+    /* USER CODE BEGIN AES_MspDeInit 1 */
+
+    /* USER CODE END AES_MspDeInit 1 */
+  }
+
+}
+
+/**
   * @brief I2C MSP Initialization
   * This function configures the hardware resources used in this example
   * @param hi2c: I2C handle pointer
@@ -242,20 +287,14 @@ void HAL_OSPI_MspInit(OSPI_HandleTypeDef* hospi)
     __HAL_RCC_OSPI1_CLK_ENABLE();
 
     __HAL_RCC_GPIOE_CLK_ENABLE();
-    __HAL_RCC_GPIOD_CLK_ENABLE();
     __HAL_RCC_GPIOF_CLK_ENABLE();
-    __HAL_RCC_GPIOH_CLK_ENABLE();
-    __HAL_RCC_GPIOC_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
     /**OCTOSPI1 GPIO Configuration
     PE3     ------> OCTOSPIM_P1_DQS
-    PD7     ------> OCTOSPIM_P1_IO7
     PF8     ------> OCTOSPIM_P1_IO0
-    PH2     ------> OCTOSPIM_P1_IO4
     PF7     ------> OCTOSPIM_P1_IO2
     PF9     ------> OCTOSPIM_P1_IO1
     PF6     ------> OCTOSPIM_P1_IO3
-    PC3     ------> OCTOSPIM_P1_IO6
     PB10     ------> OCTOSPIM_P1_CLK
     PB11     ------> OCTOSPIM_P1_NCS
     */
@@ -266,33 +305,12 @@ void HAL_OSPI_MspInit(OSPI_HandleTypeDef* hospi)
     GPIO_InitStruct.Alternate = GPIO_AF3_OCTOSPI1;
     HAL_GPIO_Init(OCTOSPI_R_DQS_GPIO_Port, &GPIO_InitStruct);
 
-    GPIO_InitStruct.Pin = OCTOSPI_R_IO7_Pin;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF10_OCTOSPI1;
-    HAL_GPIO_Init(OCTOSPI_R_IO7_GPIO_Port, &GPIO_InitStruct);
-
     GPIO_InitStruct.Pin = OCTOSPI_R_IO0_Pin|OCTOSPI_R_IO2_Pin|OCTOSPI_R_IO1_Pin|OCTOSPI_R_IO3_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF10_OCTOSPI1;
     HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
-
-    GPIO_InitStruct.Pin = OCTOSPI_R_IO4_Pin;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF3_OCTOSPI1;
-    HAL_GPIO_Init(OCTOSPI_R_IO4_GPIO_Port, &GPIO_InitStruct);
-
-    GPIO_InitStruct.Pin = OCTOSPI_R_IO6_Pin;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF10_OCTOSPI1;
-    HAL_GPIO_Init(OCTOSPI_R_IO6_GPIO_Port, &GPIO_InitStruct);
 
     GPIO_InitStruct.Pin = OCTOSPI_R_CLK_P_Pin|OCTOSPI_R_NCS_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -394,25 +412,16 @@ void HAL_OSPI_MspDeInit(OSPI_HandleTypeDef* hospi)
 
     /**OCTOSPI1 GPIO Configuration
     PE3     ------> OCTOSPIM_P1_DQS
-    PD7     ------> OCTOSPIM_P1_IO7
     PF8     ------> OCTOSPIM_P1_IO0
-    PH2     ------> OCTOSPIM_P1_IO4
     PF7     ------> OCTOSPIM_P1_IO2
     PF9     ------> OCTOSPIM_P1_IO1
     PF6     ------> OCTOSPIM_P1_IO3
-    PC3     ------> OCTOSPIM_P1_IO6
     PB10     ------> OCTOSPIM_P1_CLK
     PB11     ------> OCTOSPIM_P1_NCS
     */
     HAL_GPIO_DeInit(OCTOSPI_R_DQS_GPIO_Port, OCTOSPI_R_DQS_Pin);
 
-    HAL_GPIO_DeInit(OCTOSPI_R_IO7_GPIO_Port, OCTOSPI_R_IO7_Pin);
-
     HAL_GPIO_DeInit(GPIOF, OCTOSPI_R_IO0_Pin|OCTOSPI_R_IO2_Pin|OCTOSPI_R_IO1_Pin|OCTOSPI_R_IO3_Pin);
-
-    HAL_GPIO_DeInit(OCTOSPI_R_IO4_GPIO_Port, OCTOSPI_R_IO4_Pin);
-
-    HAL_GPIO_DeInit(OCTOSPI_R_IO6_GPIO_Port, OCTOSPI_R_IO6_Pin);
 
     HAL_GPIO_DeInit(GPIOB, OCTOSPI_R_CLK_P_Pin|OCTOSPI_R_NCS_Pin);
 

@@ -18,13 +18,15 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "veml6030.h"
-#include "lps22hh.h"
-#include "ble_hci.h"  // Add your new BLE header
-#include <stdio.h>
-
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "veml6030.h"
+#include "lps22hh.h"
+#include "ble_hci.h"
+#include <stdio.h>
+/* USER CODE END Includes */
 
 /* USER CODE END Includes */
 
@@ -44,6 +46,9 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+CRYP_HandleTypeDef hcryp;
+__ALIGN_BEGIN static const uint32_t pKeyAES[4] __ALIGN_END = {
+                            0x00000000,0x00000000,0x00000000,0x00000000};
 
 I2C_HandleTypeDef hi2c1;
 I2C_HandleTypeDef hi2c2;
@@ -69,10 +74,6 @@ LPS22HH_Status_t pressure_status;
 char uart_buf[128];
 /* USER CODE END PV */
 
-
-
-/* USER CODE END PV */
-
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void SystemPower_Config(void);
@@ -87,8 +88,9 @@ static void MX_UART4_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_UCPD1_Init(void);
 static void MX_USB_OTG_FS_PCD_Init(void);
+static void MX_AES_Init(void);
 /* USER CODE BEGIN PFP */
-
+uint16_t Format_And_Encrypt_Data(int lux, int hpa, uint8_t *output_buffer);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -138,6 +140,7 @@ int main(void)
   MX_USART1_UART_Init();
   MX_UCPD1_Init();
   MX_USB_OTG_FS_PCD_Init();
+  MX_AES_Init();
   /* USER CODE BEGIN 2 */
   light_status = VEML6030_Init(&hi2c2);
   pressure_status = LPS22HH_Init(&hi2c2);
@@ -163,27 +166,28 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-      light_status = VEML6030_ReadLight(&hi2c2, &light_data);
-      pressure_status = LPS22HH_ReadPressure(&hi2c2, &pressure_data);
+	  light_status = VEML6030_ReadLight(&hi2c2, &light_data);
+	    pressure_status = LPS22HH_ReadPressure(&hi2c2, &pressure_data);
 
-      if (light_status == VEML_OK && pressure_status == LPS_OK) {
-          // Multiply raw light by 0.0576 to get Lux, cast pressure to int for safe printing
-          int lux = (int)(light_data.ambient_light * 0.0576);
-          int hpa = (int)pressure_data.pressure_hPa;
+	    if (light_status == VEML_OK && pressure_status == LPS_OK) {
+	        int lux = (int)(light_data.ambient_light * 0.0576);
+	        int hpa = (int)pressure_data.pressure_hPa;
 
-          int len = sprintf(uart_buf, "Lux: %d | Pressure: %d hPa\r\n", lux, hpa);
-          HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, len, 100);
-      } else {
-          int len = sprintf(uart_buf, "Error: Sensor Comm Failure\r\n");
-          HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, len, 100);
-      }
+	        // 1. Format and Encrypt (REQ-009)
+	        uint16_t tx_len = Format_And_Encrypt_Data(lux, hpa, (uint8_t*)uart_buf);
 
-      HAL_Delay(1000);
-    } /* <--- MAKE SURE THIS BRACE IS HERE! */
-  /* USER CODE END 3 */
+	        // 2. Transmit the cipher text
+	        HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, tx_len, 100);
+	    } else {
+	        int len = sprintf(uart_buf, "Error: Sensor Comm Failure\r\n");
+	        HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, len, 100);
+	    }
+
+	    HAL_Delay(1000); // 1-second delay for testing (change to 60000 for REQ-003 later)
 }
-
-/**
+    /* USER CODE BEGIN 3 */
+}
+/*
   * @brief System Clock Configuration
   * @retval None
   */
@@ -258,6 +262,40 @@ static void SystemPower_Config(void)
   }
 /* USER CODE BEGIN PWR */
 /* USER CODE END PWR */
+}
+
+/**
+  * @brief AES Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_AES_Init(void)
+{
+
+  /* USER CODE BEGIN AES_Init 0 */
+
+  /* USER CODE END AES_Init 0 */
+
+  /* USER CODE BEGIN AES_Init 1 */
+
+  /* USER CODE END AES_Init 1 */
+  hcryp.Instance = AES;
+  hcryp.Init.DataType = CRYP_BYTE_SWAP;
+  hcryp.Init.KeySize = CRYP_KEYSIZE_128B;
+  hcryp.Init.pKey = (uint32_t *)pKeyAES;
+  hcryp.Init.Algorithm = CRYP_AES_ECB;
+  hcryp.Init.DataWidthUnit = CRYP_DATAWIDTHUNIT_WORD;
+  hcryp.Init.HeaderWidthUnit = CRYP_HEADERWIDTHUNIT_WORD;
+  hcryp.Init.KeyIVConfigSkip = CRYP_KEYIVCONFIG_ALWAYS;
+  hcryp.Init.KeyMode = CRYP_KEYMODE_NORMAL;
+  if (HAL_CRYP_Init(&hcryp) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN AES_Init 2 */
+
+  /* USER CODE END AES_Init 2 */
+
 }
 
 /**
@@ -802,6 +840,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(UCPD_PWR_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : OCTOSPI_R_IO7_Pin */
+  GPIO_InitStruct.Pin = OCTOSPI_R_IO7_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.Alternate = GPIO_AF10_OCTOSPI1;
+  HAL_GPIO_Init(OCTOSPI_R_IO7_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pin : USER_Button_Pin */
   GPIO_InitStruct.Pin = USER_Button_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
@@ -814,6 +860,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : OCTOSPI_R_IO4_Pin */
+  GPIO_InitStruct.Pin = OCTOSPI_R_IO4_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.Alternate = GPIO_AF3_OCTOSPI1;
+  HAL_GPIO_Init(OCTOSPI_R_IO4_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : MIC_CCK1_Pin */
   GPIO_InitStruct.Pin = MIC_CCK1_Pin;
@@ -850,6 +904,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : OCTOSPI_R_IO6_Pin */
+  GPIO_InitStruct.Pin = OCTOSPI_R_IO6_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.Alternate = GPIO_AF10_OCTOSPI1;
+  HAL_GPIO_Init(OCTOSPI_R_IO6_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pins : USB_UCPD_FLT_Pin Mems_ISM330DLC_INT1_Pin */
   GPIO_InitStruct.Pin = USB_UCPD_FLT_Pin|Mems_ISM330DLC_INT1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
@@ -877,6 +939,33 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+// 128-bit AES Key (16 bytes) - The Raspberry Pi gateway will need this exact key
+static const uint8_t aes_key[16] = {0x2B, 0x7E, 0x15, 0x16, 0x28, 0xAE, 0xD2, 0xA6,
+                                    0xAB, 0xF7, 0x15, 0x88, 0x09, 0xCF, 0x4F, 0x3C};
+
+uint16_t Format_And_Encrypt_Data(int lux, int hpa, uint8_t *output_buffer) {
+    char temp_str[64];
+
+    // 1. Format the raw plaintext string
+    int raw_len = sprintf(temp_str, "Lux:%d,hPa:%d", lux, hpa);
+
+    // 2. PKCS#7 Padding to hit a 16-byte multiple
+    uint8_t padding_val = 16 - (raw_len % 16);
+    uint16_t padded_len = raw_len + padding_val;
+
+    for (int i = 0; i < padding_val; i++) {
+        temp_str[raw_len + i] = padding_val;
+    }
+
+    // 3. Hardware AES-128 Execution
+    hcryp.Init.pKey = (uint32_t*)aes_key;
+    HAL_CRYP_Init(&hcryp);
+
+    // Encrypt temp_str into output_buffer using the SAES silicon
+    HAL_CRYP_Encrypt(&hcryp, (uint32_t*)temp_str, padded_len, (uint32_t*)output_buffer, 1000);
+
+    return padded_len;
+}
 
 /* USER CODE END 4 */
 
