@@ -91,6 +91,10 @@ static void MX_USB_OTG_FS_PCD_Init(void);
 static void MX_AES_Init(void);
 /* USER CODE BEGIN PFP */
 uint16_t Format_And_Encrypt_Data(int lux, int hpa, uint8_t *output_buffer);
+static uint8_t ReadEnvironmentalSensors(VEML6030_Data_t *light, LPS22HH_Data_t *pressure);
+static void ConvertToEngineeringUnits(const VEML6030_Data_t *light, const LPS22HH_Data_t *pressure, int *lux, int *hpa);
+static void TransmitEnvironmentalData(int lux, int hpa);
+static void RunEnvironmentalDataCycle(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -152,23 +156,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  light_status = VEML6030_ReadLight(&hi2c2, &light_data);
-	    pressure_status = LPS22HH_ReadPressure(&hi2c2, &pressure_data);
-
-	    if (light_status == VEML_OK && pressure_status == LPS_OK) {
-	        int lux = (int)(light_data.ambient_light * 0.0576);
-	        int hpa = (int)pressure_data.pressure_hPa;
-
-	        // 1. Format and Encrypt (REQ-009)
-	        uint16_t tx_len = Format_And_Encrypt_Data(lux, hpa, (uint8_t*)uart_buf);
-
-	        // 2. Transmit the cipher text, retrying on failure per REQ-008
-	        if (Comms_TransmitWithRetry(&huart1, (uint8_t*)uart_buf, tx_len, 100) != HAL_OK) {
-	            ErrorHandler_Report(&huart1, ERR_UART_TX_FAILURE);
-	        }
-	    } else {
-	        ErrorHandler_Report(&huart1, ERR_SENSOR_COMM_FAILURE);
-	    }
+	    RunEnvironmentalDataCycle();
 
 	    HAL_Delay(1000); // 1-second delay for testing (change to 60000 for REQ-003 later)
 }
@@ -886,6 +874,71 @@ uint16_t Format_And_Encrypt_Data(int lux, int hpa, uint8_t *output_buffer) {
     AES_EncryptBlock(&hcryp, aes_key, (uint8_t*)temp_str, padded_len, output_buffer, 1000);
 
     return padded_len;
+}
+
+/**
+  * @brief  Read both environmental sensors into their data structures.
+  *         Pure acquisition step; does not process or transmit anything.
+  * @param  light Output: filled with the latest ambient light reading
+  * @param  pressure Output: filled with the latest pressure reading
+  * @retval 1 if both sensors read successfully, 0 otherwise
+  */
+static uint8_t ReadEnvironmentalSensors(VEML6030_Data_t *light, LPS22HH_Data_t *pressure) {
+    light_status = VEML6030_ReadLight(&hi2c2, light);
+    pressure_status = LPS22HH_ReadPressure(&hi2c2, pressure);
+
+    return (light_status == VEML_OK && pressure_status == LPS_OK);
+}
+
+/**
+  * @brief  Convert raw sensor readings into engineering units. Pure math,
+  *         no I2C access and no side effects beyond the output parameters.
+  * @param  light Raw ambient light reading
+  * @param  pressure Raw pressure reading
+  * @param  lux Output: ambient light in lux
+  * @param  hpa Output: pressure in hPa
+  * @retval None
+  */
+static void ConvertToEngineeringUnits(const VEML6030_Data_t *light, const LPS22HH_Data_t *pressure,
+                                       int *lux, int *hpa) {
+    *lux = (int)(light->ambient_light * 0.0576);
+    *hpa = (int)pressure->pressure_hPa;
+}
+
+/**
+  * @brief  Format, encrypt and transmit one environmental reading,
+  *         retrying the transmission per REQ-008 and reporting a failure
+  *         if all retry attempts are exhausted.
+  * @param  lux Ambient light in lux
+  * @param  hpa Pressure in hPa
+  * @retval None
+  */
+static void TransmitEnvironmentalData(int lux, int hpa) {
+    // 1. Format and Encrypt (REQ-009)
+    uint16_t tx_len = Format_And_Encrypt_Data(lux, hpa, (uint8_t*)uart_buf);
+
+    // 2. Transmit the cipher text, retrying on failure per REQ-008
+    if (Comms_TransmitWithRetry(&huart1, (uint8_t*)uart_buf, tx_len, 100) != HAL_OK) {
+        ErrorHandler_Report(&huart1, ERR_UART_TX_FAILURE);
+    }
+}
+
+/**
+  * @brief  Run one full acquisition-and-transmission cycle: read both
+  *         sensors, convert to engineering units, and transmit the
+  *         result - or report a sensor failure if the reads did not
+  *         both succeed. This is the single entry point the main loop
+  *         calls each cycle.
+  * @retval None
+  */
+static void RunEnvironmentalDataCycle(void) {
+    if (ReadEnvironmentalSensors(&light_data, &pressure_data)) {
+        int lux, hpa;
+        ConvertToEngineeringUnits(&light_data, &pressure_data, &lux, &hpa);
+        TransmitEnvironmentalData(lux, hpa);
+    } else {
+        ErrorHandler_Report(&huart1, ERR_SENSOR_COMM_FAILURE);
+    }
 }
 
 /* USER CODE END 4 */
