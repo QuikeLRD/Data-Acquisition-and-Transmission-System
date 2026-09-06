@@ -1,2 +1,0 @@
-../Core/Src/ble_hci.c:3:6:BLE_Hardware_Reset	8	static
-../Core/Src/ble_hci.c:18:9:BLE_Send_HCI_Reset	16	static
