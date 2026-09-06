@@ -24,7 +24,6 @@
 /* USER CODE BEGIN Includes */
 #include "veml6030.h"
 #include "lps22hh.h"
-#include "ble_hci.h"
 #include <stdio.h>
 /* USER CODE END Includes */
 
@@ -56,8 +55,6 @@ I2C_HandleTypeDef hi2c2;
 OSPI_HandleTypeDef hospi1;
 OSPI_HandleTypeDef hospi2;
 
-SPI_HandleTypeDef hspi2;
-
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
 
@@ -83,7 +80,6 @@ static void MX_I2C2_Init(void);
 static void MX_ICACHE_Init(void);
 static void MX_OCTOSPI1_Init(void);
 static void MX_OCTOSPI2_Init(void);
-static void MX_SPI2_Init(void);
 static void MX_UART4_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_UCPD1_Init(void);
@@ -135,7 +131,6 @@ int main(void)
   MX_ICACHE_Init();
   MX_OCTOSPI1_Init();
   MX_OCTOSPI2_Init();
-  MX_SPI2_Init();
   MX_UART4_Init();
   MX_USART1_UART_Init();
   MX_UCPD1_Init();
@@ -144,19 +139,6 @@ int main(void)
   /* USER CODE BEGIN 2 */
   light_status = VEML6030_Init(&hi2c2);
   pressure_status = LPS22HH_Init(&hi2c2);
-  // Reboot the BLE module
-  // 1. Reboot the BLE module physically
-    BLE_Hardware_Reset();
-
-    // 2. Send the HCI Reset Command over SPI
-    if (BLE_Send_HCI_Reset() == 1) {
-        int len = sprintf(uart_buf, "BLE Module SPI Communication: SUCCESS!\r\n");
-        HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, len, 100);
-    } else {
-        int len = sprintf(uart_buf, "BLE Module SPI Communication: FAILED\r\n");
-        HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, len, 100);
-    }
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -542,63 +524,6 @@ static void MX_OCTOSPI2_Init(void)
   /* USER CODE BEGIN OCTOSPI2_Init 2 */
 
   /* USER CODE END OCTOSPI2_Init 2 */
-
-}
-
-/**
-  * @brief SPI2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SPI2_Init(void)
-{
-
-  /* USER CODE BEGIN SPI2_Init 0 */
-
-  /* USER CODE END SPI2_Init 0 */
-
-  SPI_AutonomousModeConfTypeDef HAL_SPI_AutonomousMode_Cfg_Struct = {0};
-
-  /* USER CODE BEGIN SPI2_Init 1 */
-
-  /* USER CODE END SPI2_Init 1 */
-  /* SPI2 parameter configuration*/
-  hspi2.Instance = SPI2;
-  hspi2.Init.Mode = SPI_MODE_MASTER;
-  hspi2.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi2.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
-  hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi2.Init.CRCPolynomial = 0x7;
-  hspi2.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
-  hspi2.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
-  hspi2.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
-  hspi2.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;
-  hspi2.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_00CYCLE;
-  hspi2.Init.MasterReceiverAutoSusp = SPI_MASTER_RX_AUTOSUSP_DISABLE;
-  hspi2.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_DISABLE;
-  hspi2.Init.IOSwap = SPI_IO_SWAP_DISABLE;
-  hspi2.Init.ReadyMasterManagement = SPI_RDY_MASTER_MANAGEMENT_INTERNALLY;
-  hspi2.Init.ReadyPolarity = SPI_RDY_POLARITY_HIGH;
-  if (HAL_SPI_Init(&hspi2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  HAL_SPI_AutonomousMode_Cfg_Struct.TriggerState = SPI_AUTO_MODE_DISABLE;
-  HAL_SPI_AutonomousMode_Cfg_Struct.TriggerSelection = SPI_GRP1_GPDMA_CH0_TCF_TRG;
-  HAL_SPI_AutonomousMode_Cfg_Struct.TriggerPolarity = SPI_TRIG_POLARITY_RISING;
-  if (HAL_SPIEx_SetConfigAutonomousMode(&hspi2, &HAL_SPI_AutonomousMode_Cfg_Struct) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN SPI2_Init 2 */
-
-  /* USER CODE END SPI2_Init 2 */
 
 }
 
