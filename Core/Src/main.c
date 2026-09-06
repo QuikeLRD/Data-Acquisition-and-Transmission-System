@@ -26,6 +26,8 @@
 #include "lps22hh.h"
 #include "sensor_data.h"
 #include "crypto.h"
+#include "error_handler.h"
+#include "comms.h"
 #include <stdio.h>
 /* USER CODE END Includes */
 
@@ -160,11 +162,12 @@ int main(void)
 	        // 1. Format and Encrypt (REQ-009)
 	        uint16_t tx_len = Format_And_Encrypt_Data(lux, hpa, (uint8_t*)uart_buf);
 
-	        // 2. Transmit the cipher text
-	        HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, tx_len, 100);
+	        // 2. Transmit the cipher text, retrying on failure per REQ-008
+	        if (Comms_TransmitWithRetry(&huart1, (uint8_t*)uart_buf, tx_len, 100) != HAL_OK) {
+	            ErrorHandler_Report(&huart1, ERR_UART_TX_FAILURE);
+	        }
 	    } else {
-	        int len = sprintf(uart_buf, "Error: Sensor Comm Failure\r\n");
-	        HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, len, 100);
+	        ErrorHandler_Report(&huart1, ERR_SENSOR_COMM_FAILURE);
 	    }
 
 	    HAL_Delay(1000); // 1-second delay for testing (change to 60000 for REQ-003 later)
