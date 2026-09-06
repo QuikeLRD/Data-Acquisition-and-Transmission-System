@@ -24,6 +24,7 @@
 /* USER CODE BEGIN Includes */
 #include "veml6030.h"
 #include "lps22hh.h"
+#include "sensor_data.h"
 #include <stdio.h>
 /* USER CODE END Includes */
 
@@ -871,8 +872,8 @@ static const uint8_t aes_key[16] = {0x2B, 0x7E, 0x15, 0x16, 0x28, 0xAE, 0xD2, 0x
 uint16_t Format_And_Encrypt_Data(int lux, int hpa, uint8_t *output_buffer) {
     char temp_str[64];
 
-    // 1. Format the raw plaintext string
-    int raw_len = sprintf(temp_str, "Lux:%d,hPa:%d", lux, hpa);
+    // 1. Serialize the sensor readings into a plaintext string
+    int raw_len = SensorData_Serialize(lux, hpa, temp_str, sizeof(temp_str));
 
     // 2. PKCS#7 Padding to hit a 16-byte multiple
     uint8_t padding_val = 16 - (raw_len % 16);
