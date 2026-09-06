@@ -1,5 +1,12 @@
 #include "ble_hci.h"
 
+/**
+  * @brief  Power-cycle the BLE module through its hardware reset pin so it
+  *         boots into a known clean state before any HCI command is sent.
+  *         Also ensures Chip Select starts idle (HIGH) so the module
+  *         doesn't see spurious SPI activity during boot.
+  * @retval None
+  */
 void BLE_Hardware_Reset(void) {
     // 1. Ensure Chip Select is HIGH (Inactive) before reset
     HAL_GPIO_WritePin(BLE_CS_PORT, BLE_CS_PIN, GPIO_PIN_SET);
@@ -15,6 +22,15 @@ void BLE_Hardware_Reset(void) {
     HAL_Delay(50);
 }
 
+/**
+  * @brief  Send the standard Bluetooth HCI_Reset command (OGF 0x03,
+  *         OCF 0x000C) to the BLE module over SPI2, then poll the
+  *         module's INT pin for up to 100ms to confirm it woke up and
+  *         acknowledged the command.
+  * @retval 1 on success (module raised INT within 100ms), 0 on
+  *         failure/timeout (dead module, wrong pin mapping, or module
+  *         still booting from a preceding BLE_Hardware_Reset call)
+  */
 uint8_t BLE_Send_HCI_Reset(void) {
     // Construct the HCI Reset Packet: [Type], [Opcode LSB], [Opcode MSB], [Length]
     uint8_t reset_cmd[4] = {0x01, 0x03, 0x0C, 0x00};

@@ -17,6 +17,13 @@
 
 /* ---------------- PRIVATE HELPER FUNCTIONS ---------------- */
 
+/**
+  * @brief  Validate that the device on the bus is really an LPS22HH by
+  *         reading its WHO_AM_I register and comparing against the
+  *         expected fixed ID.
+  * @param  hi2c I2C handle used to reach the sensor
+  * @retval LPS_OK on match, LPS_ERR_I2C on bus failure, LPS_ERR_ID on mismatch
+  */
 static LPS22HH_Status_t LPS22HH_CheckID(I2C_HandleTypeDef *hi2c) {
     uint8_t id = 0;
     if (HAL_I2C_Mem_Read(hi2c, LPS22HH_I2C_ADDR, LPS22HH_REG_WHO_AM_I,
@@ -29,6 +36,14 @@ static LPS22HH_Status_t LPS22HH_CheckID(I2C_HandleTypeDef *hi2c) {
 
 /* ---------------- PUBLIC FUNCTIONS ---------------- */
 
+/**
+  * @brief  Validate the sensor is present, then configure it for continuous
+  *         pressure sampling: 10Hz output data rate with block data update,
+  *         and register auto-increment for multi-byte reads.
+  * @param  hi2c I2C handle used to reach the sensor
+  * @retval LPS_OK on success, LPS_ERR_ID if device validation fails,
+  *         LPS_ERR_I2C if a configuration write fails
+  */
 LPS22HH_Status_t LPS22HH_Init(I2C_HandleTypeDef *hi2c) {
     if (LPS22HH_CheckID(hi2c) != LPS_OK) {
         return LPS_ERR_ID;
@@ -47,6 +62,12 @@ LPS22HH_Status_t LPS22HH_Init(I2C_HandleTypeDef *hi2c) {
     return LPS_OK;
 }
 
+/**
+  * @brief  Read the current pressure measurement, converted to hPa.
+  * @param  hi2c I2C handle used to reach the sensor
+  * @param  data Output: pressure_hPa is filled on success
+  * @retval LPS_OK on success, LPS_ERR_I2C if the I2C read fails
+  */
 LPS22HH_Status_t LPS22HH_ReadPressure(I2C_HandleTypeDef *hi2c, LPS22HH_Data_t *data) {
     uint8_t buffer[3];
 

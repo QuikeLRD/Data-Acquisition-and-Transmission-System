@@ -943,6 +943,15 @@ static void MX_GPIO_Init(void)
 static const uint8_t aes_key[16] = {0x2B, 0x7E, 0x15, 0x16, 0x28, 0xAE, 0xD2, 0xA6,
                                     0xAB, 0xF7, 0x15, 0x88, 0x09, 0xCF, 0x4F, 0x3C};
 
+/**
+  * @brief  Format a lux/pressure reading into a plaintext string, pad it
+  *         to a 16-byte boundary with PKCS#7, and encrypt it in place
+  *         using the hardware AES-128 engine (SAES).
+  * @param  lux Ambient light reading in lux
+  * @param  hpa Pressure reading in hPa
+  * @param  output_buffer Destination buffer for the ciphertext
+  * @retval Length of the ciphertext in bytes (always a multiple of 16)
+  */
 uint16_t Format_And_Encrypt_Data(int lux, int hpa, uint8_t *output_buffer) {
     char temp_str[64];
 

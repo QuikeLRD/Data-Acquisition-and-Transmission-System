@@ -10,7 +10,11 @@
 
 /* ---------------- PRIVATE HELPER FUNCTIONS ---------------- */
 
-// Task 1: Write default configuration to power on the sensor
+/**
+  * @brief  Write the default configuration to power on the sensor.
+  * @param  hi2c I2C handle used to reach the sensor
+  * @retval VEML_OK on success, VEML_ERR_I2C if the I2C write fails
+  */
 static VEML6030_Status_t VEML6030_PowerOn(I2C_HandleTypeDef *hi2c) {
     uint8_t config_buffer[2];
 
@@ -29,6 +33,11 @@ static VEML6030_Status_t VEML6030_PowerOn(I2C_HandleTypeDef *hi2c) {
 
 /* ---------------- PUBLIC FUNCTIONS ---------------- */
 
+/**
+  * @brief  Power on and configure the sensor with default settings.
+  * @param  hi2c I2C handle used to reach the sensor
+  * @retval VEML_OK on success, VEML_ERR_I2C if the configuration write fails
+  */
 VEML6030_Status_t VEML6030_Init(I2C_HandleTypeDef *hi2c) {
     VEML6030_Status_t status;
 
@@ -44,6 +53,12 @@ VEML6030_Status_t VEML6030_Init(I2C_HandleTypeDef *hi2c) {
     return VEML_OK;
 }
 
+/**
+  * @brief  Read the current ambient light measurement.
+  * @param  hi2c I2C handle used to reach the sensor
+  * @param  data Output: ambient_light is filled on success
+  * @retval VEML_OK on success, VEML_ERR_I2C if the I2C read fails
+  */
 VEML6030_Status_t VEML6030_ReadLight(I2C_HandleTypeDef *hi2c, VEML6030_Data_t *data) {
     uint8_t read_buffer[2];
 
