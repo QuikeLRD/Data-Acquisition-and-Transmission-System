@@ -25,6 +25,7 @@
 #include "veml6030.h"
 #include "lps22hh.h"
 #include "sensor_data.h"
+#include "crypto.h"
 #include <stdio.h>
 /* USER CODE END Includes */
 
@@ -876,19 +877,10 @@ uint16_t Format_And_Encrypt_Data(int lux, int hpa, uint8_t *output_buffer) {
     int raw_len = SensorData_Serialize(lux, hpa, temp_str, sizeof(temp_str));
 
     // 2. PKCS#7 Padding to hit a 16-byte multiple
-    uint8_t padding_val = 16 - (raw_len % 16);
-    uint16_t padded_len = raw_len + padding_val;
-
-    for (int i = 0; i < padding_val; i++) {
-        temp_str[raw_len + i] = padding_val;
-    }
+    uint16_t padded_len = AES_PadPKCS7((uint8_t*)temp_str, (uint16_t)raw_len, sizeof(temp_str));
 
     // 3. Hardware AES-128 Execution
-    hcryp.Init.pKey = (uint32_t*)aes_key;
-    HAL_CRYP_Init(&hcryp);
-
-    // Encrypt temp_str into output_buffer using the SAES silicon
-    HAL_CRYP_Encrypt(&hcryp, (uint32_t*)temp_str, padded_len, (uint32_t*)output_buffer, 1000);
+    AES_EncryptBlock(&hcryp, aes_key, (uint8_t*)temp_str, padded_len, output_buffer, 1000);
 
     return padded_len;
 }
