@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "name": "STM32CubeIDE",
+            "includePath": [
+                "${workspaceFolder}/Core/Inc",
+                "${workspaceFolder}/Drivers/CMSIS/Device/ST/STM32U5xx/Include",
+                "${workspaceFolder}/Drivers/CMSIS/Include",
+                "${workspaceFolder}/Drivers/STM32U5xx_HAL_Driver/Inc",
+                "${workspaceFolder}/Drivers/STM32U5xx_HAL_Driver/Inc/Legacy"
+            ],
+            "defines": [
+                "STM32U585xx",
+                "USE_HAL_DRIVER",
+                "USE_FULL_LL_DRIVER"
+            ],
+            "compilerPath": "",
+            "cStandard": "c11",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "gcc-arm"
+        }
+    ],
+    "version": 4
+}

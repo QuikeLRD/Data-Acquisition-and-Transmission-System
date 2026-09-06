@@ -1,3 +1,0 @@
-../Core/Src/lps22hh.c:20:25:LPS22HH_CheckID	3
-../Core/Src/lps22hh.c:32:18:LPS22HH_Init	4
-../Core/Src/lps22hh.c:50:18:LPS22HH_ReadPressure	3
