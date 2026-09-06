@@ -21,3 +21,5 @@ void BLE_Hardware_Reset(void);
 uint8_t BLE_Send_HCI_Reset(void);
 
 #endif /* BLE_HCI_H */
+
+
