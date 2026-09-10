@@ -1,11 +1,11 @@
 #ifndef VEML6030_H
 #define VEML6030_H
 
-#include "stm32u5xx_hal.h"
+#include "platform_i2c.h"
 #include <stdint.h>
 
-/* VEML6030 I2C Address (8-bit shifted format for STM32 HAL) */
-#define VEML6030_I2C_ADDR  0x20
+/* VEML6030 I2C Address (true 7-bit address, unshifted) */
+#define VEML6030_I2C_ADDR  0x10
 
 /* Sensor Data Structure */
 typedef struct {
@@ -21,7 +21,7 @@ typedef enum {
 } VEML6030_Status_t;
 
 /* Public Function Prototypes */
-VEML6030_Status_t VEML6030_Init(I2C_HandleTypeDef *hi2c);
-VEML6030_Status_t VEML6030_ReadLight(I2C_HandleTypeDef *hi2c, VEML6030_Data_t *data);
+VEML6030_Status_t VEML6030_Init(Platform_I2CBus_t bus);
+VEML6030_Status_t VEML6030_ReadLight(Platform_I2CBus_t bus, VEML6030_Data_t *data);
 
 #endif /* VEML6030_H */
