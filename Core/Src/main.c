@@ -23,6 +23,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "platform_i2c.h"
+#include "platform_uart.h"
+#include "platform_crypto.h"
+#include "platform_time.h"
 #include "veml6030.h"
 #include "lps22hh.h"
 #include <stdio.h>
@@ -146,13 +149,13 @@ int main(void)
 	        uint16_t tx_len = Format_And_Encrypt_Data(lux, hpa, (uint8_t*)uart_buf);
 
 	        // 2. Transmit the cipher text
-	        HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, tx_len, 100);
+	        Platform_UART_Transmit((uint8_t*)uart_buf, tx_len, 100);
 	    } else {
 	        int len = sprintf(uart_buf, "Error: Sensor Comm Failure\r\n");
-	        HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, len, 100);
+	        Platform_UART_Transmit((uint8_t*)uart_buf, len, 100);
 	    }
 
-	    HAL_Delay(1000); // 1-second delay for testing (change to 60000 for REQ-003 later)
+	    Platform_Delay_ms(1000); // 1-second delay for testing (change to 60000 for REQ-003 later)
 }
     /* USER CODE BEGIN 3 */
 }
@@ -633,12 +636,8 @@ uint16_t Format_And_Encrypt_Data(int lux, int hpa, uint8_t *output_buffer) {
         temp_str[raw_len + i] = padding_val;
     }
 
-    // 3. Hardware AES-128 Execution
-    hcryp.Init.pKey = (uint32_t*)aes_key;
-    HAL_CRYP_Init(&hcryp);
-
-    // Encrypt temp_str into output_buffer using the SAES silicon
-    HAL_CRYP_Encrypt(&hcryp, (uint32_t*)temp_str, padded_len, (uint32_t*)output_buffer, 1000);
+    // 3. AES-128 Execution via the platform layer
+    Platform_AES_Encrypt(aes_key, (uint8_t*)temp_str, padded_len, output_buffer, 1000);
 
     return padded_len;
 }

@@ -1,7 +1,7 @@
 #ifndef PLATFORM_I2C_H
 #define PLATFORM_I2C_H
 
-#include <stdint.h>
+#include "platform_types.h"
 
 /* I2C bus identifiers. Each one maps to a real hardware
    peripheral inside the platform-specific implementation (see
@@ -11,11 +11,6 @@ typedef enum {
     PLATFORM_I2C_BUS_1,
     PLATFORM_I2C_BUS_2
 } Platform_I2CBus_t;
-
-typedef enum {
-    PLATFORM_OK = 0,
-    PLATFORM_ERROR
-} Platform_Status_t;
 
 /**
   * @brief  Write to a register on an I2C device.
