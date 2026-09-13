@@ -22,6 +22,7 @@
 /* USER CODE BEGIN Includes */
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "platform_i2c.h"
 #include "veml6030.h"
 #include "lps22hh.h"
 #include "ble_hci.h"
@@ -142,8 +143,8 @@ int main(void)
   MX_USB_OTG_FS_PCD_Init();
   MX_AES_Init();
   /* USER CODE BEGIN 2 */
-  light_status = VEML6030_Init(&hi2c2);
-  pressure_status = LPS22HH_Init(&hi2c2);
+  light_status = VEML6030_Init(PLATFORM_I2C_BUS_2);
+  pressure_status = LPS22HH_Init(PLATFORM_I2C_BUS_2);
   // Reboot the BLE module
   // 1. Reboot the BLE module physically
     BLE_Hardware_Reset();
@@ -166,8 +167,8 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  light_status = VEML6030_ReadLight(&hi2c2, &light_data);
-	    pressure_status = LPS22HH_ReadPressure(&hi2c2, &pressure_data);
+	  light_status = VEML6030_ReadLight(PLATFORM_I2C_BUS_2, &light_data);
+	    pressure_status = LPS22HH_ReadPressure(PLATFORM_I2C_BUS_2, &pressure_data);
 
 	    if (light_status == VEML_OK && pressure_status == LPS_OK) {
 	        int lux = (int)(light_data.ambient_light * 0.0576);
