@@ -7,22 +7,28 @@
    platform_i2c.h interface - nothing above this file (veml6030.c,
    lps22hh.c, main.c) ever needs to change. */
 
-extern I2C_HandleTypeDef hi2c1;
 extern I2C_HandleTypeDef hi2c2;
 
 /**
   * @brief  Resolve a vendor-agnostic bus identifier to the STM32 HAL
   *         handle that actually implements it.
   * @param  bus Which I2C bus was requested
-  * @retval Pointer to the matching HAL I2C handle
+  * @retval Pointer to the matching HAL I2C handle, or NULL if the bus is
+  *         not wired on this board
   */
 static I2C_HandleTypeDef* Platform_I2C_GetHandle(Platform_I2CBus_t bus) {
-    return (bus == PLATFORM_I2C_BUS_1) ? &hi2c1 : &hi2c2;
+    switch (bus) {
+        case PLATFORM_I2C_BUS_2: return &hi2c2;
+        default:                 return NULL;
+    }
 }
 
 Platform_Status_t Platform_I2C_WriteRegister(Platform_I2CBus_t bus, uint8_t devAddr,
                                               uint8_t regAddr, uint8_t *data, uint16_t len) {
     I2C_HandleTypeDef *hi2c = Platform_I2C_GetHandle(bus);
+    if (hi2c == NULL) {
+        return PLATFORM_ERROR;
+    }
 
     // The platform interface takes the true 7-bit I2C address; STM32's
     // HAL expects it pre-shifted left by 1 (bit 0 is reserved for the
@@ -39,6 +45,9 @@ Platform_Status_t Platform_I2C_WriteRegister(Platform_I2CBus_t bus, uint8_t devA
 Platform_Status_t Platform_I2C_ReadRegister(Platform_I2CBus_t bus, uint8_t devAddr,
                                              uint8_t regAddr, uint8_t *data, uint16_t len) {
     I2C_HandleTypeDef *hi2c = Platform_I2C_GetHandle(bus);
+    if (hi2c == NULL) {
+        return PLATFORM_ERROR;
+    }
     uint16_t shiftedAddr = (uint16_t)(devAddr << 1);
 
     if (HAL_I2C_Mem_Read(hi2c, shiftedAddr, regAddr, I2C_MEMADD_SIZE_8BIT,

@@ -8,7 +8,6 @@
    platform_i2c_stm32.c) - no sensor driver should ever need to know
    which physical peripheral, or which vendor's silicon, sits behind it. */
 typedef enum {
-    PLATFORM_I2C_BUS_1,
     PLATFORM_I2C_BUS_2
 } Platform_I2CBus_t;
 
