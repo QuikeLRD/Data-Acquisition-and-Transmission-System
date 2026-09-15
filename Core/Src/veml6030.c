@@ -12,10 +12,10 @@
 
 /**
   * @brief  Write the default configuration to power on the sensor.
-  * @param  hi2c I2C handle used to reach the sensor
-  * @retval VEML_OK on success, VEML_ERR_I2C if the I2C write fails
+  * @param  bus Which I2C bus the sensor is on
+  * @retval VEML_OK on success, VEML_ERR_I2C if the write fails
   */
-static VEML6030_Status_t VEML6030_PowerOn(I2C_HandleTypeDef *hi2c) {
+static VEML6030_Status_t VEML6030_PowerOn(Platform_I2CBus_t bus) {
     uint8_t config_buffer[2];
 
     // VEML6030 expects LSB first, then MSB
@@ -23,8 +23,8 @@ static VEML6030_Status_t VEML6030_PowerOn(I2C_HandleTypeDef *hi2c) {
     config_buffer[1] = (uint8_t)((VEML6030_CONF_POWER_ON >> 8) & 0xFF); // MSB
 
     // Write 2 bytes to the Configuration Register (0x00)
-    if (HAL_I2C_Mem_Write(hi2c, VEML6030_I2C_ADDR, VEML6030_REG_ALS_CONF,
-                          I2C_MEMADD_SIZE_8BIT, config_buffer, 2, 100) != HAL_OK) {
+    if (Platform_I2C_WriteRegister(bus, VEML6030_I2C_ADDR, VEML6030_REG_ALS_CONF,
+                                    config_buffer, 2) != PLATFORM_OK) {
         return VEML_ERR_I2C;
     }
 
@@ -35,14 +35,14 @@ static VEML6030_Status_t VEML6030_PowerOn(I2C_HandleTypeDef *hi2c) {
 
 /**
   * @brief  Power on and configure the sensor with default settings.
-  * @param  hi2c I2C handle used to reach the sensor
+  * @param  bus Which I2C bus the sensor is on
   * @retval VEML_OK on success, VEML_ERR_I2C if the configuration write fails
   */
-VEML6030_Status_t VEML6030_Init(I2C_HandleTypeDef *hi2c) {
+VEML6030_Status_t VEML6030_Init(Platform_I2CBus_t bus) {
     VEML6030_Status_t status;
 
     // 1. Setup Block: Power on and configure the sensor
-    status = VEML6030_PowerOn(hi2c);
+    status = VEML6030_PowerOn(bus);
     if (status != VEML_OK) {
         // Future Step: Call ErrorLogger_HandleFault() here
         return status;
@@ -55,16 +55,16 @@ VEML6030_Status_t VEML6030_Init(I2C_HandleTypeDef *hi2c) {
 
 /**
   * @brief  Read the current ambient light measurement.
-  * @param  hi2c I2C handle used to reach the sensor
+  * @param  bus Which I2C bus the sensor is on
   * @param  data Output: ambient_light is filled on success
-  * @retval VEML_OK on success, VEML_ERR_I2C if the I2C read fails
+  * @retval VEML_OK on success, VEML_ERR_I2C if the read fails
   */
-VEML6030_Status_t VEML6030_ReadLight(I2C_HandleTypeDef *hi2c, VEML6030_Data_t *data) {
+VEML6030_Status_t VEML6030_ReadLight(Platform_I2CBus_t bus, VEML6030_Data_t *data) {
     uint8_t read_buffer[2];
 
     // 1. Read 2 bytes from the ALS Data Register (0x04)
-    if (HAL_I2C_Mem_Read(hi2c, VEML6030_I2C_ADDR, VEML6030_REG_ALS_DATA,
-                         I2C_MEMADD_SIZE_8BIT, read_buffer, 2, 100) != HAL_OK) {
+    if (Platform_I2C_ReadRegister(bus, VEML6030_I2C_ADDR, VEML6030_REG_ALS_DATA,
+                                   read_buffer, 2) != PLATFORM_OK) {
         return VEML_ERR_I2C;
     }
 

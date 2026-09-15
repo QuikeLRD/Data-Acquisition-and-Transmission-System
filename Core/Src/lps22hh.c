@@ -21,13 +21,13 @@
   * @brief  Validate that the device on the bus is really an LPS22HH by
   *         reading its WHO_AM_I register and comparing against the
   *         expected fixed ID.
-  * @param  hi2c I2C handle used to reach the sensor
+  * @param  bus Which I2C bus the sensor is on
   * @retval LPS_OK on match, LPS_ERR_I2C on bus failure, LPS_ERR_ID on mismatch
   */
-static LPS22HH_Status_t LPS22HH_CheckID(I2C_HandleTypeDef *hi2c) {
+static LPS22HH_Status_t LPS22HH_CheckID(Platform_I2CBus_t bus) {
     uint8_t id = 0;
-    if (HAL_I2C_Mem_Read(hi2c, LPS22HH_I2C_ADDR, LPS22HH_REG_WHO_AM_I,
-                         I2C_MEMADD_SIZE_8BIT, &id, 1, 100) != HAL_OK) {
+    if (Platform_I2C_ReadRegister(bus, LPS22HH_I2C_ADDR, LPS22HH_REG_WHO_AM_I,
+                                   &id, 1) != PLATFORM_OK) {
         return LPS_ERR_I2C;
     }
     if (id != LPS22HH_EXPECTED_ID) return LPS_ERR_ID;
@@ -40,40 +40,40 @@ static LPS22HH_Status_t LPS22HH_CheckID(I2C_HandleTypeDef *hi2c) {
   * @brief  Validate the sensor is present, then configure it for continuous
   *         pressure sampling: 10Hz output data rate with block data update,
   *         and register auto-increment for multi-byte reads.
-  * @param  hi2c I2C handle used to reach the sensor
+  * @param  bus Which I2C bus the sensor is on
   * @retval LPS_OK on success, LPS_ERR_ID if device validation fails,
   *         LPS_ERR_I2C if a configuration write fails
   */
-LPS22HH_Status_t LPS22HH_Init(I2C_HandleTypeDef *hi2c) {
-    if (LPS22HH_CheckID(hi2c) != LPS_OK) {
+LPS22HH_Status_t LPS22HH_Init(Platform_I2CBus_t bus) {
+    if (LPS22HH_CheckID(bus) != LPS_OK) {
         return LPS_ERR_ID;
     }
 
     // CTRL_REG1: Set Output Data Rate to 10Hz (0x20) and enable Block Data Update (0x02)
     uint8_t ctrl1 = 0x22;
-    if (HAL_I2C_Mem_Write(hi2c, LPS22HH_I2C_ADDR, LPS22HH_REG_CTRL1,
-                          I2C_MEMADD_SIZE_8BIT, &ctrl1, 1, 100) != HAL_OK) return LPS_ERR_I2C;
+    if (Platform_I2C_WriteRegister(bus, LPS22HH_I2C_ADDR, LPS22HH_REG_CTRL1,
+                                    &ctrl1, 1) != PLATFORM_OK) return LPS_ERR_I2C;
 
     // CTRL_REG2: Enable Auto-Increment (0x10) for multi-byte reads
     uint8_t ctrl2 = 0x10;
-    if (HAL_I2C_Mem_Write(hi2c, LPS22HH_I2C_ADDR, LPS22HH_REG_CTRL2,
-                          I2C_MEMADD_SIZE_8BIT, &ctrl2, 1, 100) != HAL_OK) return LPS_ERR_I2C;
+    if (Platform_I2C_WriteRegister(bus, LPS22HH_I2C_ADDR, LPS22HH_REG_CTRL2,
+                                    &ctrl2, 1) != PLATFORM_OK) return LPS_ERR_I2C;
 
     return LPS_OK;
 }
 
 /**
   * @brief  Read the current pressure measurement, converted to hPa.
-  * @param  hi2c I2C handle used to reach the sensor
+  * @param  bus Which I2C bus the sensor is on
   * @param  data Output: pressure_hPa is filled on success
-  * @retval LPS_OK on success, LPS_ERR_I2C if the I2C read fails
+  * @retval LPS_OK on success, LPS_ERR_I2C if the read fails
   */
-LPS22HH_Status_t LPS22HH_ReadPressure(I2C_HandleTypeDef *hi2c, LPS22HH_Data_t *data) {
+LPS22HH_Status_t LPS22HH_ReadPressure(Platform_I2CBus_t bus, LPS22HH_Data_t *data) {
     uint8_t buffer[3];
 
     // Read 3 consecutive bytes starting from PRESS_OUT_XL (0x28)
-    if (HAL_I2C_Mem_Read(hi2c, LPS22HH_I2C_ADDR, LPS22HH_REG_PRESS_OUT,
-                         I2C_MEMADD_SIZE_8BIT, buffer, 3, 100) != HAL_OK) {
+    if (Platform_I2C_ReadRegister(bus, LPS22HH_I2C_ADDR, LPS22HH_REG_PRESS_OUT,
+                                   buffer, 3) != PLATFORM_OK) {
         return LPS_ERR_I2C;
     }
 

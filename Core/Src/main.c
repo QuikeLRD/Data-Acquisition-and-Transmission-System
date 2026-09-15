@@ -22,9 +22,12 @@
 /* USER CODE BEGIN Includes */
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "platform_i2c.h"
+#include "platform_uart.h"
+#include "platform_crypto.h"
+#include "platform_time.h"
 #include "veml6030.h"
 #include "lps22hh.h"
-#include "ble_hci.h"
 #include <stdio.h>
 /* USER CODE END Includes */
 
@@ -50,18 +53,11 @@ CRYP_HandleTypeDef hcryp;
 __ALIGN_BEGIN static const uint32_t pKeyAES[4] __ALIGN_END = {
                             0x00000000,0x00000000,0x00000000,0x00000000};
 
-I2C_HandleTypeDef hi2c1;
 I2C_HandleTypeDef hi2c2;
 
-OSPI_HandleTypeDef hospi1;
-OSPI_HandleTypeDef hospi2;
 
-SPI_HandleTypeDef hspi2;
-
-UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
 
-PCD_HandleTypeDef hpcd_USB_OTG_FS;
 
 /* USER CODE BEGIN PV */
 /* USER CODE BEGIN PV */
@@ -78,16 +74,9 @@ char uart_buf[128];
 void SystemClock_Config(void);
 static void SystemPower_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_I2C1_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_ICACHE_Init(void);
-static void MX_OCTOSPI1_Init(void);
-static void MX_OCTOSPI2_Init(void);
-static void MX_SPI2_Init(void);
-static void MX_UART4_Init(void);
 static void MX_USART1_UART_Init(void);
-static void MX_UCPD1_Init(void);
-static void MX_USB_OTG_FS_PCD_Init(void);
 static void MX_AES_Init(void);
 /* USER CODE BEGIN PFP */
 uint16_t Format_And_Encrypt_Data(int lux, int hpa, uint8_t *output_buffer);
@@ -130,33 +119,13 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_I2C1_Init();
   MX_I2C2_Init();
   MX_ICACHE_Init();
-  MX_OCTOSPI1_Init();
-  MX_OCTOSPI2_Init();
-  MX_SPI2_Init();
-  MX_UART4_Init();
   MX_USART1_UART_Init();
-  MX_UCPD1_Init();
-  MX_USB_OTG_FS_PCD_Init();
   MX_AES_Init();
   /* USER CODE BEGIN 2 */
-  light_status = VEML6030_Init(&hi2c2);
-  pressure_status = LPS22HH_Init(&hi2c2);
-  // Reboot the BLE module
-  // 1. Reboot the BLE module physically
-    BLE_Hardware_Reset();
-
-    // 2. Send the HCI Reset Command over SPI
-    if (BLE_Send_HCI_Reset() == 1) {
-        int len = sprintf(uart_buf, "BLE Module SPI Communication: SUCCESS!\r\n");
-        HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, len, 100);
-    } else {
-        int len = sprintf(uart_buf, "BLE Module SPI Communication: FAILED\r\n");
-        HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, len, 100);
-    }
-
+  light_status = VEML6030_Init(PLATFORM_I2C_BUS_2);
+  pressure_status = LPS22HH_Init(PLATFORM_I2C_BUS_2);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -166,8 +135,8 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  light_status = VEML6030_ReadLight(&hi2c2, &light_data);
-	    pressure_status = LPS22HH_ReadPressure(&hi2c2, &pressure_data);
+	  light_status = VEML6030_ReadLight(PLATFORM_I2C_BUS_2, &light_data);
+	    pressure_status = LPS22HH_ReadPressure(PLATFORM_I2C_BUS_2, &pressure_data);
 
 	    if (light_status == VEML_OK && pressure_status == LPS_OK) {
 	        int lux = (int)(light_data.ambient_light * 0.0576);
@@ -177,13 +146,13 @@ int main(void)
 	        uint16_t tx_len = Format_And_Encrypt_Data(lux, hpa, (uint8_t*)uart_buf);
 
 	        // 2. Transmit the cipher text
-	        HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, tx_len, 100);
+	        Platform_UART_Transmit((uint8_t*)uart_buf, tx_len, 100);
 	    } else {
 	        int len = sprintf(uart_buf, "Error: Sensor Comm Failure\r\n");
-	        HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, len, 100);
+	        Platform_UART_Transmit((uint8_t*)uart_buf, len, 100);
 	    }
 
-	    HAL_Delay(1000); // 1-second delay for testing (change to 60000 for REQ-003 later)
+	    Platform_Delay_ms(1000); // 1-second delay for testing (change to 60000 for REQ-003 later)
 }
     /* USER CODE BEGIN 3 */
 }
@@ -299,54 +268,6 @@ static void MX_AES_Init(void)
 }
 
 /**
-  * @brief I2C1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2C1_Init(void)
-{
-
-  /* USER CODE BEGIN I2C1_Init 0 */
-
-  /* USER CODE END I2C1_Init 0 */
-
-  /* USER CODE BEGIN I2C1_Init 1 */
-
-  /* USER CODE END I2C1_Init 1 */
-  hi2c1.Instance = I2C1;
-  hi2c1.Init.Timing = 0x30909DEC;
-  hi2c1.Init.OwnAddress1 = 0;
-  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c1.Init.OwnAddress2 = 0;
-  hi2c1.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
-  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure Analogue filter
-  */
-  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c1, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure Digital filter
-  */
-  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c1, 0) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C1_Init 2 */
-
-  /* USER CODE END I2C1_Init 2 */
-
-}
-
-/**
   * @brief I2C2 Initialization Function
   * @param None
   * @retval None
@@ -427,230 +348,6 @@ static void MX_ICACHE_Init(void)
 }
 
 /**
-  * @brief OCTOSPI1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_OCTOSPI1_Init(void)
-{
-
-  /* USER CODE BEGIN OCTOSPI1_Init 0 */
-
-  /* USER CODE END OCTOSPI1_Init 0 */
-
-  OSPIM_CfgTypeDef sOspiManagerCfg = {0};
-  HAL_OSPI_DLYB_CfgTypeDef HAL_OSPI_DLYB_Cfg_Struct = {0};
-
-  /* USER CODE BEGIN OCTOSPI1_Init 1 */
-
-  /* USER CODE END OCTOSPI1_Init 1 */
-  /* OCTOSPI1 parameter configuration*/
-  hospi1.Instance = OCTOSPI1;
-  hospi1.Init.FifoThreshold = 1;
-  hospi1.Init.DualQuad = HAL_OSPI_DUALQUAD_DISABLE;
-  hospi1.Init.MemoryType = HAL_OSPI_MEMTYPE_APMEMORY;
-  hospi1.Init.DeviceSize = 23;
-  hospi1.Init.ChipSelectHighTime = 1;
-  hospi1.Init.FreeRunningClock = HAL_OSPI_FREERUNCLK_DISABLE;
-  hospi1.Init.ClockMode = HAL_OSPI_CLOCK_MODE_0;
-  hospi1.Init.WrapSize = HAL_OSPI_WRAP_NOT_SUPPORTED;
-  hospi1.Init.ClockPrescaler = 2;
-  hospi1.Init.SampleShifting = HAL_OSPI_SAMPLE_SHIFTING_NONE;
-  hospi1.Init.DelayHoldQuarterCycle = HAL_OSPI_DHQC_ENABLE;
-  hospi1.Init.ChipSelectBoundary = 10;
-  hospi1.Init.DelayBlockBypass = HAL_OSPI_DELAY_BLOCK_USED;
-  hospi1.Init.MaxTran = 0;
-  hospi1.Init.Refresh = 100;
-  if (HAL_OSPI_Init(&hospi1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sOspiManagerCfg.ClkPort = 1;
-  sOspiManagerCfg.DQSPort = 1;
-  sOspiManagerCfg.NCSPort = 1;
-  sOspiManagerCfg.IOLowPort = HAL_OSPIM_IOPORT_1_LOW;
-  if (HAL_OSPIM_Config(&hospi1, &sOspiManagerCfg, HAL_OSPI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  HAL_OSPI_DLYB_Cfg_Struct.Units = 0;
-  HAL_OSPI_DLYB_Cfg_Struct.PhaseSel = 0;
-  if (HAL_OSPI_DLYB_SetConfig(&hospi1, &HAL_OSPI_DLYB_Cfg_Struct) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN OCTOSPI1_Init 2 */
-
-  /* USER CODE END OCTOSPI1_Init 2 */
-
-}
-
-/**
-  * @brief OCTOSPI2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_OCTOSPI2_Init(void)
-{
-
-  /* USER CODE BEGIN OCTOSPI2_Init 0 */
-
-  /* USER CODE END OCTOSPI2_Init 0 */
-
-  OSPIM_CfgTypeDef sOspiManagerCfg = {0};
-  HAL_OSPI_DLYB_CfgTypeDef HAL_OSPI_DLYB_Cfg_Struct = {0};
-
-  /* USER CODE BEGIN OCTOSPI2_Init 1 */
-
-  /* USER CODE END OCTOSPI2_Init 1 */
-  /* OCTOSPI2 parameter configuration*/
-  hospi2.Instance = OCTOSPI2;
-  hospi2.Init.FifoThreshold = 4;
-  hospi2.Init.DualQuad = HAL_OSPI_DUALQUAD_DISABLE;
-  hospi2.Init.MemoryType = HAL_OSPI_MEMTYPE_MACRONIX;
-  hospi2.Init.DeviceSize = 26;
-  hospi2.Init.ChipSelectHighTime = 2;
-  hospi2.Init.FreeRunningClock = HAL_OSPI_FREERUNCLK_DISABLE;
-  hospi2.Init.ClockMode = HAL_OSPI_CLOCK_MODE_0;
-  hospi2.Init.WrapSize = HAL_OSPI_WRAP_NOT_SUPPORTED;
-  hospi2.Init.ClockPrescaler = 4;
-  hospi2.Init.SampleShifting = HAL_OSPI_SAMPLE_SHIFTING_NONE;
-  hospi2.Init.DelayHoldQuarterCycle = HAL_OSPI_DHQC_ENABLE;
-  hospi2.Init.ChipSelectBoundary = 0;
-  hospi2.Init.DelayBlockBypass = HAL_OSPI_DELAY_BLOCK_USED;
-  hospi2.Init.MaxTran = 0;
-  hospi2.Init.Refresh = 0;
-  if (HAL_OSPI_Init(&hospi2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sOspiManagerCfg.ClkPort = 2;
-  sOspiManagerCfg.DQSPort = 2;
-  sOspiManagerCfg.NCSPort = 2;
-  sOspiManagerCfg.IOLowPort = HAL_OSPIM_IOPORT_2_LOW;
-  sOspiManagerCfg.IOHighPort = HAL_OSPIM_IOPORT_2_HIGH;
-  if (HAL_OSPIM_Config(&hospi2, &sOspiManagerCfg, HAL_OSPI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  HAL_OSPI_DLYB_Cfg_Struct.Units = 0;
-  HAL_OSPI_DLYB_Cfg_Struct.PhaseSel = 0;
-  if (HAL_OSPI_DLYB_SetConfig(&hospi2, &HAL_OSPI_DLYB_Cfg_Struct) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN OCTOSPI2_Init 2 */
-
-  /* USER CODE END OCTOSPI2_Init 2 */
-
-}
-
-/**
-  * @brief SPI2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SPI2_Init(void)
-{
-
-  /* USER CODE BEGIN SPI2_Init 0 */
-
-  /* USER CODE END SPI2_Init 0 */
-
-  SPI_AutonomousModeConfTypeDef HAL_SPI_AutonomousMode_Cfg_Struct = {0};
-
-  /* USER CODE BEGIN SPI2_Init 1 */
-
-  /* USER CODE END SPI2_Init 1 */
-  /* SPI2 parameter configuration*/
-  hspi2.Instance = SPI2;
-  hspi2.Init.Mode = SPI_MODE_MASTER;
-  hspi2.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi2.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
-  hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi2.Init.CRCPolynomial = 0x7;
-  hspi2.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
-  hspi2.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
-  hspi2.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
-  hspi2.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;
-  hspi2.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_00CYCLE;
-  hspi2.Init.MasterReceiverAutoSusp = SPI_MASTER_RX_AUTOSUSP_DISABLE;
-  hspi2.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_DISABLE;
-  hspi2.Init.IOSwap = SPI_IO_SWAP_DISABLE;
-  hspi2.Init.ReadyMasterManagement = SPI_RDY_MASTER_MANAGEMENT_INTERNALLY;
-  hspi2.Init.ReadyPolarity = SPI_RDY_POLARITY_HIGH;
-  if (HAL_SPI_Init(&hspi2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  HAL_SPI_AutonomousMode_Cfg_Struct.TriggerState = SPI_AUTO_MODE_DISABLE;
-  HAL_SPI_AutonomousMode_Cfg_Struct.TriggerSelection = SPI_GRP1_GPDMA_CH0_TCF_TRG;
-  HAL_SPI_AutonomousMode_Cfg_Struct.TriggerPolarity = SPI_TRIG_POLARITY_RISING;
-  if (HAL_SPIEx_SetConfigAutonomousMode(&hspi2, &HAL_SPI_AutonomousMode_Cfg_Struct) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN SPI2_Init 2 */
-
-  /* USER CODE END SPI2_Init 2 */
-
-}
-
-/**
-  * @brief UART4 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_UART4_Init(void)
-{
-
-  /* USER CODE BEGIN UART4_Init 0 */
-
-  /* USER CODE END UART4_Init 0 */
-
-  /* USER CODE BEGIN UART4_Init 1 */
-
-  /* USER CODE END UART4_Init 1 */
-  huart4.Instance = UART4;
-  huart4.Init.BaudRate = 115200;
-  huart4.Init.WordLength = UART_WORDLENGTH_8B;
-  huart4.Init.StopBits = UART_STOPBITS_1;
-  huart4.Init.Parity = UART_PARITY_NONE;
-  huart4.Init.Mode = UART_MODE_TX_RX;
-  huart4.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart4.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart4.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart4.Init.ClockPrescaler = UART_PRESCALER_DIV1;
-  huart4.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_SetTxFifoThreshold(&huart4, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_SetRxFifoThreshold(&huart4, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_DisableFifoMode(&huart4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN UART4_Init 2 */
-
-  /* USER CODE END UART4_Init 2 */
-
-}
-
-/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -695,84 +392,6 @@ static void MX_USART1_UART_Init(void)
   /* USER CODE BEGIN USART1_Init 2 */
 
   /* USER CODE END USART1_Init 2 */
-
-}
-
-/**
-  * @brief UCPD1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_UCPD1_Init(void)
-{
-
-  /* USER CODE BEGIN UCPD1_Init 0 */
-
-  /* USER CODE END UCPD1_Init 0 */
-
-  LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-  /* Peripheral clock enable */
-  LL_APB1_GRP2_EnableClock(LL_APB1_GRP2_PERIPH_UCPD1);
-
-  LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOA);
-  LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOB);
-  /**UCPD1 GPIO Configuration
-  PA15 (JTDI)   ------> UCPD1_CC1
-  PB15   ------> UCPD1_CC2
-  */
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_15;
-  GPIO_InitStruct.Mode = LL_GPIO_MODE_ANALOG;
-  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
-  LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_15;
-  GPIO_InitStruct.Mode = LL_GPIO_MODE_ANALOG;
-  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
-  LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /* USER CODE BEGIN UCPD1_Init 1 */
-
-  /* USER CODE END UCPD1_Init 1 */
-  /* USER CODE BEGIN UCPD1_Init 2 */
-
-  /* USER CODE END UCPD1_Init 2 */
-
-}
-
-/**
-  * @brief USB_OTG_FS Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USB_OTG_FS_PCD_Init(void)
-{
-
-  /* USER CODE BEGIN USB_OTG_FS_Init 0 */
-
-  /* USER CODE END USB_OTG_FS_Init 0 */
-
-  /* USER CODE BEGIN USB_OTG_FS_Init 1 */
-
-  /* USER CODE END USB_OTG_FS_Init 1 */
-  hpcd_USB_OTG_FS.Instance = USB_OTG_FS;
-  hpcd_USB_OTG_FS.Init.dev_endpoints = 6;
-  hpcd_USB_OTG_FS.Init.speed = PCD_SPEED_FULL;
-  hpcd_USB_OTG_FS.Init.phy_itface = PCD_PHY_EMBEDDED;
-  hpcd_USB_OTG_FS.Init.Sof_enable = DISABLE;
-  hpcd_USB_OTG_FS.Init.low_power_enable = DISABLE;
-  hpcd_USB_OTG_FS.Init.lpm_enable = DISABLE;
-  hpcd_USB_OTG_FS.Init.battery_charging_enable = DISABLE;
-  hpcd_USB_OTG_FS.Init.use_dedicated_ep1 = DISABLE;
-  hpcd_USB_OTG_FS.Init.vbus_sensing_enable = DISABLE;
-  hpcd_USB_OTG_FS.Init.dma_enable = DISABLE;
-  if (HAL_PCD_Init(&hpcd_USB_OTG_FS) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USB_OTG_FS_Init 2 */
-
-  /* USER CODE END USB_OTG_FS_Init 2 */
 
 }
 
@@ -966,12 +585,8 @@ uint16_t Format_And_Encrypt_Data(int lux, int hpa, uint8_t *output_buffer) {
         temp_str[raw_len + i] = padding_val;
     }
 
-    // 3. Hardware AES-128 Execution
-    hcryp.Init.pKey = (uint32_t*)aes_key;
-    HAL_CRYP_Init(&hcryp);
-
-    // Encrypt temp_str into output_buffer using the SAES silicon
-    HAL_CRYP_Encrypt(&hcryp, (uint32_t*)temp_str, padded_len, (uint32_t*)output_buffer, 1000);
+    // 3. AES-128 Execution via the platform layer
+    Platform_AES_Encrypt(aes_key, (uint8_t*)temp_str, padded_len, output_buffer, 1000);
 
     return padded_len;
 }
