@@ -16,7 +16,11 @@ import re
 import sys
 
 import serial
-from Crypto.Cipher import AES
+
+try:
+    from Crypto.Cipher import AES  # pycryptodome (pip)
+except ImportError:
+    from Cryptodome.Cipher import AES  # name used by some distro packages
 
 PORT = "/dev/serial0"
 BAUD = 115200
