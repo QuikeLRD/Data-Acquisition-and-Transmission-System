@@ -3,6 +3,7 @@
 #include "platform_crypto.h"
 #include "platform_time.h"
 #include "app_init.h"
+#include "gateway_frame.h"
 #include "veml6030.h"
 #include "lps22hh.h"
 #include <stdbool.h>
@@ -18,12 +19,14 @@ static const uint8_t aes_key[PLATFORM_AES_KEY_SIZE] = {0x2B, 0x7E, 0x15, 0x16, 0
                                                        0xAB, 0xF7, 0x15, 0x88, 0x09, 0xCF, 0x4F, 0x3C};
 
 static char uart_buf[128];
+static uint8_t cipher_buf[GATEWAY_FRAME_MAX_PAYLOAD];
+static uint8_t frame_buf[GATEWAY_FRAME_MAX_SIZE];
 
 static void App_Run(void);
 static bool App_ReadSensors(VEML6030_Data_t *light, LPS22HH_Data_t *pressure);
 static void App_TransmitReading(int lux, int hpa);
 static uint16_t Format_And_Encrypt_Data(int lux, int hpa, uint8_t *output_buffer);
-static void App_ReportSensorFailure(void);
+static void App_ReportError(const char *message);
 
 /**
   * @brief  The application entry point.
@@ -54,7 +57,7 @@ static void App_Run(void) {
         int hpa = (int)pressure.pressure_hPa;
         App_TransmitReading(lux, hpa);
     } else {
-        App_ReportSensorFailure();
+        App_ReportError("Error: Sensor Comm Failure");
     }
 
     Platform_Delay_ms(APP_CYCLE_PERIOD_MS);
@@ -75,14 +78,22 @@ static bool App_ReadSensors(VEML6030_Data_t *light, LPS22HH_Data_t *pressure) {
 }
 
 /**
-  * @brief  Encrypt a reading and send it over UART (REQ-009).
+  * @brief  Encrypt a reading, frame it and send it to the gateway (REQ-009).
+  *         If encryption fails nothing is sent to the gateway and the failure
+  *         is reported on the PC link instead.
   * @param  lux Ambient light reading in lux
   * @param  hpa Pressure reading in hPa
   * @retval None
   */
 static void App_TransmitReading(int lux, int hpa) {
-    uint16_t tx_len = Format_And_Encrypt_Data(lux, hpa, (uint8_t*)uart_buf);
-    Platform_UART_Transmit((uint8_t*)uart_buf, tx_len, APP_UART_TIMEOUT_MS);
+    uint16_t cipher_len = Format_And_Encrypt_Data(lux, hpa, cipher_buf);
+    if (cipher_len == 0) {
+        App_ReportError("Error: Encryption Failure");
+        return;
+    }
+
+    uint16_t frame_len = GatewayFrame_Build(cipher_buf, cipher_len, frame_buf);
+    Platform_UART_Transmit(PLATFORM_UART_GATEWAY, frame_buf, frame_len, APP_UART_TIMEOUT_MS);
 }
 
 /**
@@ -91,7 +102,8 @@ static void App_TransmitReading(int lux, int hpa) {
   * @param  lux Ambient light reading in lux
   * @param  hpa Pressure reading in hPa
   * @param  output_buffer Destination buffer for the ciphertext
-  * @retval Length of the ciphertext in bytes (always a multiple of 16)
+  * @retval Length of the ciphertext in bytes (always a multiple of 16),
+  *         or 0 if encryption failed
   */
 static uint16_t Format_And_Encrypt_Data(int lux, int hpa, uint8_t *output_buffer) {
     char temp_str[64];
@@ -108,16 +120,19 @@ static uint16_t Format_And_Encrypt_Data(int lux, int hpa, uint8_t *output_buffer
     }
 
     // 3. AES-128 Execution via the platform layer
-    Platform_AES_Encrypt(aes_key, (uint8_t*)temp_str, padded_len, output_buffer, APP_AES_TIMEOUT_MS);
+    if (Platform_AES_Encrypt(aes_key, (uint8_t*)temp_str, padded_len, output_buffer, APP_AES_TIMEOUT_MS) != PLATFORM_OK) {
+        return 0;
+    }
 
     return padded_len;
 }
 
 /**
-  * @brief  Send a plain-text sensor failure message over UART.
+  * @brief  Send a plain-text error message to the PC over UART.
+  * @param  message Message text, without line ending
   * @retval None
   */
-static void App_ReportSensorFailure(void) {
-    int len = sprintf(uart_buf, "Error: Sensor Comm Failure\r\n");
-    Platform_UART_Transmit((uint8_t*)uart_buf, len, APP_UART_TIMEOUT_MS);
+static void App_ReportError(const char *message) {
+    int len = snprintf(uart_buf, sizeof(uart_buf), "%s\r\n", message);
+    Platform_UART_Transmit(PLATFORM_UART_PC, (uint8_t*)uart_buf, (uint16_t)len, APP_UART_TIMEOUT_MS);
 }
