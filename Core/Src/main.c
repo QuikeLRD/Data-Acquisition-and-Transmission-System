@@ -9,7 +9,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#define APP_CYCLE_PERIOD_MS   1000    // 1 s for testing; REQ-003 requires 60000
+#define APP_CYCLE_PERIOD_MS   60000    // 1 s for testing; REQ-003 requires 60000
 #define APP_UART_TIMEOUT_MS   100
 #define APP_AES_TIMEOUT_MS    1000
 #define APP_LUX_PER_COUNT     0.0576f // VEML6030 resolution at its default gain/integration time
